@@ -262,6 +262,7 @@ def main() :
             log.info('FOM: %f x %f=%f'%(efficiency,purity,fom))
             log.info("=====================================")
 
+# Requirements for each target class should be added for comparison
 
             # computes spectrum S/N                                                                                                                                                                     
             mean_ston=np.zeros(len(index))
