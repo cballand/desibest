@@ -25,23 +25,17 @@ def main() :
                         help = 'path of DESI brick in r')
     parser.add_argument('--z', type = str, default = None, required=False,
                         help = 'path of DESI brick in z')
-#    parser.add_argument('--outfile', type = str, default = None, required=False,
-#                        help = 'path of output file')
-### Future support of spectra only in the range [first:nres] 
-#    parser.add_argument('--nres', type = int, default = None, required=False,
-#                        help = 'max number of results to analyse')
-#    parser.add_argument('--first', type = int, default = 0, required=False,
-#                        help = 'first result to analyse')
+    parser.add_argument('--outfile', type = str, default = "parsezbest_results.dat", required=False,
+                        help = 'path of output file')
     parser.add_argument('--pathtruth', type = str, default = None, required=False,
                         help = 'path of truth table if does not exist in bricks')
     parser.add_argument('--zbest', type = str, default = None, required=False,
                         help = 'zbest file')
-#    parser.add_argument('--type', type = str, default = "ELG", required=False,
-#                        help = 'select a given type')
-
 
     args = parser.parse_args()
     log=get_logger()
+
+    file=open(args.outfile,"w")                                                                                                                                                                        
 
     log.info("starting")
 
@@ -59,6 +53,12 @@ def main() :
     log.info("Using %s r brick"%args.r)
     log.info("Using %s z brick"%args.z)
     log.info(" ")
+
+    file.write("Using zbest file %s\n"%args.zbest)
+    file.write("Using %s b brick\n"%args.b)
+    file.write("Using %s r brick\n"%args.r)
+    file.write("Using %s z brick\n"%args.z)
+    file.write("\n")
         
 
     b_brick=Brick(args.b)
@@ -71,6 +71,7 @@ def main() :
     except :
         log.error("error when parsing %s file:"%args.zbest)
         print sys.exc_info()
+        file.close()
         sys.exit(12)
         
     c=3.e5 # light celerity in km/s
@@ -85,6 +86,7 @@ def main() :
     else:
         log.error("zbest file does not have the required structure")
         log.error("Check ZBEST structure at http://desidatamodel.readthedocs.org/en/latest/DESI_SPECTRO_REDUX/PRODNAME/bricks/BRICKNAME/zbest-BRICKNAME.html")
+        file.close()
         print sys.exc_info()
         sys.exit(12)
     keys=['BRICKNAME', 'TARGETID', 'Z', 'ZERR','ZWARN',  'TYPE', 'SUBTYPE']
@@ -94,6 +96,7 @@ def main() :
         except :
             log.error("Missing column %s in %s"%(k,args.zbest))
             log.error("Check ZBEST format at http://desidatamodel.readthedocs.org/en/latest/DESI_SPECTRO_REDUX/PRODNAME/bricks/BRICKNAME/zbest-BRICKNAME.html")
+            file.close()
             print sys.exc_info()
             sys.exit(12)
         else:
@@ -120,6 +123,7 @@ def main() :
             log.info(" ")
         except:
             log.error("A truth table should be provided")
+            file.close()
             sys.exit(12)
 
 #- Get results from zbest hdu and infos from truth table
@@ -130,15 +134,10 @@ def main() :
     zt = truth['TRUEZ']
     zw = zbres['ZWARN']
     
-#    for i in range(len(zbres['Z'])):
-#        print '%s %s %s'%(zb[i],zt[i],zw[i])
-             
-
 #- joining zbest and truth tables  
 
     zb_zt = join(zbres, truth, keys='TARGETID')
 
-#    print zb_zt['Z','TRUEZ','ZWARN']
     truez=zb_zt['TRUEZ']
     bestz=zb_zt['Z']
     errz=zb_zt['ZERR']
@@ -147,6 +146,7 @@ def main() :
     if (n == 0):
         log.error("target ids in zbest file are not a subset of target ids in truth table")                                                                                                            
         log.error("did you provide bricks that correspond to zbest file ?")
+        file.close()
         sys.exit(12) 
 
 #- Select objtype
@@ -155,33 +155,17 @@ def main() :
     log.info("-----------------------------------")
 
     obj=dict()
-    objtypes=['ELG','LRG','QSO','QSO_BAD','STAR','SKY']
+    objtypes=['ELG','LRG','QSO','QSO_BAD','STAR']
     totobj = len(zb_zt['Z'])
 
-### Future support of spectra only in the range [first:nres] 
-#    first = args.first
-
-#    if args.nres is not None :
-#        nres = min(args.nres,totobj)
-#    else :
-#        nres=totobj
-
-#    if (args.first >= totobj -1):
-#        log.error("First spectrum to consider can not have index greater than %s"%(totobj-1))
-#        first=0
-
     for o in objtypes:
-### Future support of spectra only in the range [first:nres] 
-#        index=np.where(truth_table_hdu.data['OBJTYPE'][first:first+nres]== '%s'%o)[0]+first
-        first=0
-        nres=totobj
-        index=np.where(zb_zt['OBJTYPE'][first:first+nres]== '%s'%o)[0]+first
-        index=index[:nres]
-
+        index=np.where(zb_zt['OBJTYPE'] == '%s'%o)[0]
         obj[o]=len(index)
         log.info("%i %s found"%(obj[o],o))
+        file.write("%i %s found\n"%(obj[o],o))
         if (obj[o] != 0): 
             log.info(" ")
+            file.write("\n")
             tz = np.zeros(len(index))
             bz = np.zeros(len(index))
             zw = np.zeros(len(index))
@@ -230,6 +214,13 @@ def main() :
             log.info("%s: Precision and accuracy (zwarn=0)"%o)
             log.info("=====================================")
             log.info("zerr: %f, bias: %f"%(zerr,acc))
+            log.info(" ")
+
+            file.write("=====================================\n")
+            file.write("%s: Precision and accuracy (zwarn=0)\n"%o)
+            file.write("=====================================\n")
+            file.write("zerr: %f, bias: %f\n"%(zerr,acc))
+            file.write("\n")
 
             if (o == 'ELG'):
                 true_pos_oII = np.where((np.abs(bz-tz)<0.05) & (zw==0) & (trfloii>8e-17))[0]
@@ -259,6 +250,17 @@ def main() :
                 log.info('Purity_oII: %d/%d=%f'%(len(true_pos_oII),(len(true_pos_oII)+len(false_pos_oII)),purity_oII))
                 log.info('Catastrophic failures_oII: %d/%d=%f'%(len(false_pos_oII),total_oII,cata_fail_oII))
                 log.info('FOM_oII: %f x %f=%f'%(efficiency_oII,purity_oII,fom_oII))
+                log.info(" ")
+
+                file.write("=====================================\n")
+                file.write("%s: For OII > 8e-17 erg/s/cm2\n"%o)
+                file.write("=====================================\n")
+                file.write('Efficiency_oII: %d/%d=%f\n'%(len(true_pos_oII),total_oII,efficiency_oII))
+                file.write('Purity_oII: %d/%d=%f\n'%(len(true_pos_oII),(len(true_pos_oII)+len(false_pos_oII)),purity_oII))
+                file.write('Catastrophic failures_oII: %d/%d=%f\n'%(len(false_pos_oII),total_oII,cata_fail_oII))
+                file.write('FOM_oII: %f x %f=%f\n'%(efficiency_oII,purity_oII,fom_oII))
+                file.write("\n")
+
 
             log.info("=====================================")
             log.info("%s: Total sample"%o)
@@ -268,12 +270,24 @@ def main() :
             log.info('Catastrophic failures: %d/%d=%f'%(len(false_pos),total,cata_fail))
             log.info('FOM: %f x %f=%f'%(efficiency,purity,fom))
             log.info("=====================================")
+            log.info(" ")
+
+            file.write("=====================================\n")
+            file.write("%s: Total sample\n"%o)
+            file.write("=====================================\n")
+            file.write('Efficiency: %d/%d=%f\n'%(len(true_pos),total,efficiency))
+            file.write('Purity: %d/%d=%f\n'%(len(true_pos),(len(true_pos)+len(false_pos)),purity))
+            file.write('Catastrophic failures: %d/%d=%f\n'%(len(false_pos),total,cata_fail))
+            file.write('FOM: %f x %f=%f\n'%(efficiency,purity,fom))
+            file.write("=====================================\n")
+            file.write("\n")
+
 
 # Requirements for each target class should be added for comparison
 
             # computes spectrum S/N                                                                                                                                                                     
-            mean_ston=np.zeros(len(index))
-            mean_ston_oII=np.zeros(len(index))
+            mean_ston=np.zeros(totobj)
+            mean_ston_oII=np.zeros(totobj)
             for spec in index:
                 flux=[b_brick.hdu_list[0].data[spec],r_brick.hdu_list[0].data[spec],z_brick.hdu_list[0].data[spec]]
                 ivar=[b_brick.hdu_list[1].data[spec],r_brick.hdu_list[1].data[spec],z_brick.hdu_list[1].data[spec]]
@@ -386,6 +400,7 @@ def main() :
 
 
             pylab.show()                
+
 
 if __name__ == '__main__':
     main()
