@@ -17,7 +17,7 @@ import os.path
 
 def main() :
 
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,prog='parsezbest.py', usage='%(prog)s [options]\n\n parsezbest.py without options runs a demo')
 
     parser.add_argument('--b', type = str, default = None, required=False,
                         help = 'path of DESI brick in b')
@@ -25,8 +25,8 @@ def main() :
                         help = 'path of DESI brick in r')
     parser.add_argument('--z', type = str, default = None, required=False,
                         help = 'path of DESI brick in z')
-    parser.add_argument('--outfile', type = str, default = None, required=False,
-                        help = 'path of output file')
+#    parser.add_argument('--outfile', type = str, default = None, required=False,
+#                        help = 'path of output file')
 ### Future support of spectra only in the range [first:nres] 
 #    parser.add_argument('--nres', type = int, default = None, required=False,
 #                        help = 'max number of results to analyse')
@@ -36,8 +36,8 @@ def main() :
                         help = 'path of truth table if does not exist in bricks')
     parser.add_argument('--zbest', type = str, default = None, required=False,
                         help = 'zbest file')
-    parser.add_argument('--type', type = str, default = "ELG", required=False,
-                        help = 'select a given type')
+#    parser.add_argument('--type', type = str, default = "ELG", required=False,
+#                        help = 'select a given type')
 
 
     args = parser.parse_args()
@@ -45,24 +45,28 @@ def main() :
 
     log.info("starting")
 
-    if args.b is None:
+    if args.zbest is None :
+        args.zbest = "%s/data/zbest-training-elg-100-zztop.fits"%(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(desibest.__file__)))))
         args.b = "%s/data/brick-b-elg-100-zztop.fits"%(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(desibest.__file__)))))
-    if args.r is None:
         args.r = "%s/data/brick-r-elg-100-zztop.fits"%(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(desibest.__file__)))))
-    if args.z is None:
         args.z = "%s/data/brick-z-elg-100-zztop.fits"%(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(desibest.__file__)))))
+    else:
+        if ((args.b is None) or (args.r is None) or (args.z is None)):
+            log.error("b, r and z bricks files should are required when %s file is provided"%args.zbest)
+            sys.exit(12)
+
+    log.info("Using zbest file %s"%args.zbest)
+    log.info("Using %s b brick"%args.b)
+    log.info("Using %s r brick"%args.r)
+    log.info("Using %s z brick"%args.z)
+    log.info(" ")
+        
 
     b_brick=Brick(args.b)
     r_brick=Brick(args.r)
     z_brick=Brick(args.z)
     brickname = args.b
     
-    
-    if args.zbest is None :
-        args.zbest = "%s/data/zbest-training-elg-100-zztop.fits"%(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(desibest.__file__)))))
-        log.info("will use default zbest file %s"%args.zbest)
-        log.info(" ")
-        
     try :
         zb_hdulist=fits.open(args.zbest)
     except :
@@ -294,9 +298,9 @@ def main() :
             n, bins, patches = pylab.hist(dz[ok], 20, normed=1, histtype='stepfilled')
             pylab.setp(patches, 'facecolor', 'b', 'alpha', 0.75)
             gauss = pylab.normpdf(bins, mu, sigma)
-            l = pylab.plot(bins, gauss, 'k--', linewidth=1.5)
-            pylab.xlabel("Delta z")
-            pylab.ylabel("Num. of targest per bin")
+            l = pylab.plot(bins, gauss, 'k--', linewidth=1.5, label="%s"%o)
+            pylab.xlabel("(zb-zt)/(1+zt)")
+            pylab.ylabel("Num. of %s targest per bin"%o)
             
             pylab.figure()
             nx = 1
@@ -306,15 +310,15 @@ def main() :
             ok = np.where(zw==0)
             a=pylab.subplot(ny,nx,ai); ai +=1
             a.errorbar(mean_ston[ok],dz[ok],errz[ok],fmt="bo")
-            a.set_xlabel("<S/N>")
-            a.set_ylabel("Zbest-Ztrue (ZWARN=0)")
+            a.set_xlabel("%s Average <S/N> per bin"%o)
+            a.set_ylabel("(zb-zt)/(1+zt) (ZWARN=0)")
 
             not_ok = np.where(zw !=0)
             a=pylab.subplot(ny,nx,ai); ai +=1
             a.errorbar(mean_ston[ok],dz[ok],errz[ok],fmt="bo")
             a.errorbar(mean_ston[not_ok],dz[not_ok],errz[not_ok],fmt="ro")
-            a.set_xlabel("<S/N>")
-            a.set_ylabel("Zbest-Ztrue (all ZWARN)")
+            a.set_xlabel("%s Average <S/N> per bin"%o)
+            a.set_ylabel("(zb-zt)/(1+zt) (all ZWARN)")
 
             if (o == 'ELG'):
                 pylab.figure()
@@ -328,13 +332,13 @@ def main() :
                 a=pylab.subplot(ny,nx,ai); ai +=1
                 a.errorbar(zb_zt['OIIFLUX'][ok],dz[ok],errz[ok],fmt="bo")
                 a.errorbar(zb_zt['OIIFLUX'][not_ok],dz[not_ok],errz[not_ok],fmt="ro")
-                a.set_xlabel("True [OII] flux")
-                a.set_ylabel("Zbest-Ztrue (all ZWARN)")
+                a.set_xlabel("%s True [OII] flux"%o)
+                a.set_ylabel("(zb-zt)/(1+zt) (all ZWARN)")
 
                 a=pylab.subplot(ny,nx,ai); ai +=1
                 a.errorbar(zb_zt['OIIFLUX'][ok],dz[ok],errz[ok],fmt="bo")
-                a.set_xlabel("True [OII] flux")
-                a.set_ylabel("Zbest-Ztrue (ZWARN=0)")
+                a.set_xlabel("%s True [OII] flux"%o)
+                a.set_ylabel("(zb-zt)/(1+zt) (ZWARN=0)")
 
             pylab.figure()
             nx=2
@@ -344,24 +348,24 @@ def main() :
             a=pylab.subplot(ny,nx,ai); ai +=1
             a.errorbar(tz[ok],dz[ok],errz[ok],fmt="o",c="b")
             a.errorbar(tz[not_ok],dz[not_ok],errz[not_ok],fmt="o",c="r")
-            a.set_xlabel("Ztrue (all ZWARN)")
-            a.set_ylabel("Zbest - Ztrue (all ZWARN)")
+            a.set_xlabel("%s zt (all ZWARN)"%o)
+            a.set_ylabel("(zb-zt)/(1+zt) (all ZWARN)")
             
             a=pylab.subplot(ny,nx,ai); ai +=1
             a.errorbar(bz[ok],dz[ok],errz[ok],fmt="o",c="b")
             a.errorbar(bz[not_ok],dz[not_ok],errz[not_ok],fmt="o",c="r")
-            a.set_xlabel("Zbest (all ZWARN)")
-            a.set_ylabel("Zbest - Ztrue")
+            a.set_xlabel("%s zb (all ZWARN)"%o)
+            a.set_ylabel("(zb-zt)/(1+zt)")
             
             a=pylab.subplot(ny,nx,ai); ai +=1
             a.errorbar(tz[ok],dz[ok],errz[ok],fmt="o",c="b")
-            a.set_xlabel("Ztrue (ZWARN=0)")
-            a.set_ylabel("Zbest - Ztrue")
+            a.set_xlabel("%s zt (ZWARN=0)"%o)
+            a.set_ylabel("(zb-zt)/(1+zt)")
 
             a=pylab.subplot(ny,nx,ai); ai +=1
             a.errorbar(bz[ok],dz[ok],errz[ok],fmt="o",c="b")
-            a.set_xlabel("Zbest (ZWARN=0)")
-            a.set_ylabel("Zbest - Ztrue")
+            a.set_xlabel("%s zb (ZWARN=0)"%o)
+            a.set_ylabel("(zb-zt)/(1+zt)")
 
 
 
