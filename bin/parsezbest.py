@@ -51,7 +51,7 @@ def main() :
         args.r = "%s/data/brick-r-elg-100-zztop.fits"%(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(desibest.__file__)))))
         args.z = "%s/data/brick-z-elg-100-zztop.fits"%(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(desibest.__file__)))))
     elif ((args.zbest is None) or (args.b is None) or (args.r is None) or (args.z is None)):
-            log.error("Either all files (b, r and z bricks and zbest) or none should be provided"%args.zbest)
+            log.error("Either all files (b, r and z bricks and zbest) or none should be provided")
             sys.exit(12)
 
     log.info("Using zbest file %s"%args.zbest)
