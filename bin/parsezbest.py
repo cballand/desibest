@@ -146,6 +146,7 @@ def main() :
     n=bestz.size
     if (n == 0):
         log.error("target ids in zbest file are not a subset of target ids in truth table")                                                                                                            
+        log.error("did you provide bricks that correspond to zbest file ?")
         sys.exit(12) 
 
 #- Select objtype
@@ -155,7 +156,7 @@ def main() :
 
     obj=dict()
     objtypes=['ELG','LRG','QSO','QSO_BAD','STAR','SKY']
-    totobj = len(zbres['TYPE'])
+    totobj = len(zb_zt['Z'])
 
 ### Future support of spectra only in the range [first:nres] 
 #    first = args.first
@@ -185,11 +186,15 @@ def main() :
             bz = np.zeros(len(index))
             zw = np.zeros(len(index))
             dv = np.zeros(len(index))
+            if (o == 'ELG'): 
+                trfloii = np.zeros(len(index))
 
             for i,j in zip(index,range(len(index))):
                 tz[j]=truez[i]
                 bz[j]=bestz[i]
                 zw[j]=zwarn[i]
+                if (o == 'ELG'):
+                    trfloii[j] = zb_zt["OIIFLUX"][i]
             dv = c*(bz-tz)/(1+tz)
             dz=dv/c
 
@@ -227,11 +232,10 @@ def main() :
             log.info("zerr: %f, bias: %f"%(zerr,acc))
 
             if (o == 'ELG'):
-                true_oIIflux=zb_zt["OIIFLUX"]
-                true_pos_oII = np.where((np.abs(bz-tz)<0.05) & (zw==0) & (true_oIIflux>8e-17))[0]
-                true_neg_oII = np.where((np.abs(bz-tz)>0.05) & (zw!=0) & (true_oIIflux>8e-17))[0]
-                false_pos_oII = np.where((np.abs(bz-tz)>0.05) & (zw==0) & (true_oIIflux>8e-17))[0]
-                false_neg_oII = np.where((np.abs(bz-tz)<0.05) & (zw!=0) & (true_oIIflux>8e-17))[0]
+                true_pos_oII = np.where((np.abs(bz-tz)<0.05) & (zw==0) & (trfloii>8e-17))[0]
+                true_neg_oII = np.where((np.abs(bz-tz)>0.05) & (zw!=0) & (trfloii>8e-17))[0]
+                false_pos_oII = np.where((np.abs(bz-tz)>0.05) & (zw==0) & (trfloii>8e-17))[0]
+                false_neg_oII = np.where((np.abs(bz-tz)<0.05) & (zw!=0) & (trfloii>8e-17))[0]
 
                 #- total                                                                              
                 total_oII = len(true_pos_oII)+len(true_neg_oII)+len(false_pos_oII)+len(false_neg_oII)
@@ -288,7 +292,7 @@ def main() :
                 
             #- plots
             
-            #- histogram z
+            #- histograms
             
             pylab.figure()
             ok=np.where(zw==0)
@@ -301,6 +305,19 @@ def main() :
             pylab.xlabel("(zb-zt)/(1+zt)")
             pylab.ylabel("Num. of %s targest per bin"%o)
             
+
+            pylab.figure()
+            ok=np.where(zw==0)
+            mu = np.mean(dv[ok])
+            sigma = np.std(dv[ok])
+            n, bins, patches = pylab.hist(dv[ok], 20, normed=1, histtype='stepfilled')
+            pylab.setp(patches, 'facecolor', 'g', 'alpha', 0.75)
+            gauss = pylab.normpdf(bins, mu, sigma)
+            l = pylab.plot(bins, gauss, 'k--', linewidth=1.5, label="%s"%o)
+            pylab.xlabel("Delta v = c(zb-zt)/(1+zt) [km/s]")
+            pylab.ylabel("Num. of %s targest per bin"%o)
+
+
             pylab.figure()
             nx = 1
             ny = 2
@@ -309,14 +326,14 @@ def main() :
             ok = np.where(zw==0)
             a=pylab.subplot(ny,nx,ai); ai +=1
             a.errorbar(mean_ston[ok],dz[ok],errz[ok],fmt="bo")
-            a.set_xlabel("%s Average <S/N> per bin"%o)
+            a.set_xlabel("%s <S/N>"%o)
             a.set_ylabel("(zb-zt)/(1+zt) (ZWARN=0)")
 
             not_ok = np.where(zw !=0)
             a=pylab.subplot(ny,nx,ai); ai +=1
             a.errorbar(mean_ston[ok],dz[ok],errz[ok],fmt="bo")
             a.errorbar(mean_ston[not_ok],dz[not_ok],errz[not_ok],fmt="ro")
-            a.set_xlabel("%s Average <S/N> per bin"%o)
+            a.set_xlabel("%s <S/N> "%o)
             a.set_ylabel("(zb-zt)/(1+zt) (all ZWARN)")
 
             if (o == 'ELG'):
