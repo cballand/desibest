@@ -45,14 +45,13 @@ def main() :
 
     log.info("starting")
 
-    if args.zbest is None :
+    if ((args.zbest is None) and (args.b is None) and (args.r is None) and (args.z is None)):
         args.zbest = "%s/data/zbest-training-elg-100-zztop.fits"%(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(desibest.__file__)))))
         args.b = "%s/data/brick-b-elg-100-zztop.fits"%(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(desibest.__file__)))))
         args.r = "%s/data/brick-r-elg-100-zztop.fits"%(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(desibest.__file__)))))
         args.z = "%s/data/brick-z-elg-100-zztop.fits"%(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(desibest.__file__)))))
-    else:
-        if ((args.b is None) or (args.r is None) or (args.z is None)):
-            log.error("b, r and z bricks files should are required when %s file is provided"%args.zbest)
+    elif ((args.zbest is None) or (args.b is None) or (args.r is None) or (args.z is None)):
+            log.error("Either all files (b, r and z bricks and zbest) or none should be provided"%args.zbest)
             sys.exit(12)
 
     log.info("Using zbest file %s"%args.zbest)
