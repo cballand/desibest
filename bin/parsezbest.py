@@ -472,6 +472,8 @@ def main() :
             file.write("=====================================\n")
             file.write("%s: Total sample\n"%o)
             file.write("=====================================\n")
+            file.write("zwarn = 0: %d\n"%zw0)
+            file.write("zwarn !=0: %d\n"%zw_non0)
             file.write('Efficiency: %d/%d=%f\n'%(len(true_pos),total,efficiency))
             if req is not None:
                 if (efficiency < req['EFFICIENCY']):
