@@ -65,6 +65,8 @@ def main() :
     + % of catastrophic failures
     + FOM = purity*efficiency
 
+    Results are stored in outfile (default parezbest_results.dat)
+
     Plots:
     + Histograms dz, dv, pull
     + dz as a function of zt and zb for:
