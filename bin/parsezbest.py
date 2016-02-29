@@ -51,7 +51,37 @@ def desi_requirement(obj):
     return req
 
 def main() :
+    """
+    parsezbest.py computes common metrics and makes plots for analyzing results of zdc1 redshift challenge (zbest file).
 
+    Metrics:
+    + dz = (zbest-ztrue)/(1+ztrue)
+    + dv = c*dz
+    + pull = (zbest-ztrue)/zerr
+    + precision: sigma_z = std(dz), sigma_v = std(dv), nmad_z, nmad_v
+    + accuracy (bias): mu_z = mean(dz), mu_v = mean(dv)
+    + efficiency
+    + purity
+    + % of catastrophic failures
+    + FOM = purity*efficiency
+
+    Plots:
+    + Histograms dz, dv, pull
+    + dz as a function of zt and zb for:
+        - zwarn=0
+        - zwarn=0 without catastrophic failures
+        - zwarn!=0
+    + dz as a function of average S/N per wavelegnth bin for:
+        - zwarn=0                                                                                                                                                                                     
+        - zwarn=0 without catastrophic failures
+        - zwarn!=0      
+    
+    Color code:
+    + zwarn=0: blue filled circles
+    + zwarn !=0: red filled circles
+    + catastrophic failures: green filled circles
+
+    """
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,prog='parsezbest.py', usage='%(prog)s [options]\n\n parsezbest.py without options runs a demo')
 
     parser.add_argument('--b', type = str, default = None, required=False,
