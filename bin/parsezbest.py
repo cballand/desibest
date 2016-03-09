@@ -98,6 +98,8 @@ def main() :
                         help = 'path of truth table if does not exist in bricks')
     parser.add_argument('--zbest', type = str, default = None, required=False,
                         help = 'zbest file')
+    parser.add_argument('--plot', dest='plots', action='store_true', help = 'Plots are optional. They are put to the screen if --plot is used.')
+    parser.set_defaults(plots=False)
 
     args = parser.parse_args()
     log=get_logger()
@@ -166,8 +168,10 @@ def main() :
 
     log.info("Checking zbest structure and format")
     log.info("-----------------------------------")
-    if(zb_hdulist[0].size == 0 and zb_hdulist[1].name == 'ZBEST'):
+    if(zb_hdulist[0].size == 0 and zb_hdulist[1].size != 0):
         log.info("zbest file has the required structure")
+        if (zb_hdulist[1].name != 'ZBEST'):
+            log.warning("HDU extension 1 has name %s, not ZBEST"%zb_hdulist[1].name)
         log.info(" ")
     else:
         log.error("zbest file does not have the required structure")
@@ -176,10 +180,13 @@ def main() :
         print sys.exc_info()
         sys.exit(12)
 
-    keys=['BRICKNAME', 'TARGETID', 'Z', 'ZERR','ZWARN',  'TYPE', 'SUBTYPE']
+    zb_name = zb_hdulist[1].name
+
+    keys=['TARGETID', 'Z', 'ZERR', 'ZWARN', 'TYPE']
+    subkeys = ['BRICKNAME', 'SUBTYPE']
     for k in keys:
         try :
-            zb_hdulist['ZBEST'].columns.names.index(k)
+            zb_hdulist[zb_name].columns.names.index(k)
         except :
             log.error("Missing column %s in %s"%(k,args.zbest))
             log.error("Check ZBEST format at http://desidatamodel.readthedocs.org/en/latest/DESI_SPECTRO_REDUX/PRODNAME/bricks/BRICKNAME/zbest-BRICKNAME.html")
@@ -187,7 +194,13 @@ def main() :
             print sys.exc_info()
             sys.exit(12)
         else:
-            log.info("ZBEST hdu has the required columns %s"%k)
+            log.info("ZBEST hdu has required column %s"%k)
+    for sk in subkeys:
+        try:
+            zb_hdulist[zb_name].columns.names.index(k)
+            log.info("ZBEST hdu has optional column %s"%sk)
+        except:
+            log.warning("ZBEST hdu misses optional %s column"%sk)
     log.info(" ")
 
 #- checking for truth table
@@ -215,13 +228,17 @@ def main() :
 
 #- Get results from zbest hdu and infos from truth table
     truth = truth_table_hdu.data
-    zbres=zb_hdulist['ZBEST'].data
+    zbres=zb_hdulist[zb_name].data
 
     zb = zbres['Z']
     zt = truth['TRUEZ']
     zw = zbres['ZWARN']
     
 #- joining zbest and truth tables  
+
+    # checks that targetids have the same dtype in truth and zbres
+    if (zbres['TARGETID'].dtype != truth['TARGETID'].dtype):
+        zbres = np.asarray(zbres,dtype=[('BRICKNAME', 'S20'), ('TARGETID', '>i8'), ('Z', '>f8'), ('ZERR', '>f8'), ('ZWARN', '>f8'), ('TYPE', 'S20')])
 
     zb_zt = join(zbres, truth, keys='TARGETID')
 
@@ -278,7 +295,6 @@ def main() :
                     trfloii[j] = zb_zt["OIIFLUX"][i]
             dv = c*(bz-tz)/(1+tz)
             dz=dv/c
-            pull =(bz-tz)/ez
 
             true_pos = np.where((np.abs(dz)<0.0033) & (zw==0))[0]
             true_neg = np.where((np.abs(dz)>0.0033) & (zw!=0))[0]
@@ -295,26 +311,49 @@ def main() :
             purity = float(len(true_pos))/float((len(true_pos)+len(false_pos)))
 
             #- catastrophic failures
-            cata_fail = float(len(false_pos))/float(total)
+#            cata_fail = float(len(false_pos))/float(total)
+            cata_fail = float(len(false_pos))/float((len(true_pos)+len(false_pos)))
 
             #- figure of merit
             fom = efficiency*purity
 
             # precision
+            #- sigma
             ok = np.where(zw==0)[0]
             zerr = np.std(dz[ok])
             verr = np.std(dv[ok])
+            #- quantiles
+            dz_quant = np.percentile(dz[ok], (2.5, 16, 50, 84, 97.5))
+            dv_quant = np.percentile(dv[ok], (2.5, 16, 50, 84, 97.5))
+            dz_err68 = (dz_quant[3] - dz_quant[1])/2.
+            dz_err95 = (dz_quant[4] - dz_quant[0])/2.
+            dv_err68 = (dv_quant[3] - dv_quant[1])/2.
+            dv_err95 = (dv_quant[4] - dv_quant[0])/2.            
 
             #accuracy
-            zacc = np.abs(np.mean(dz[ok]))
-            vacc = np.abs(np.mean(dv[ok]))
+            #- mu
+            zacc = np.mean(dz[ok])
+            vacc = np.mean(dv[ok])
+            #- quantile
+            dz_acc50 = dz_quant[2]
+            dv_acc50 = dv_quant[2]
+
 
             ok_no_cata = np.where((zw==0) & (np.abs(dz)<0.0033))[0]
+
             if (len(ok) != len(ok_no_cata)):
                 zerr_no_cata = np.std(dz[ok_no_cata])
                 verr_no_cata = np.std(dv[ok_no_cata])
-                zacc_no_cata = np.abs(np.mean(dz[ok_no_cata]))
-                vacc_no_cata = np.abs(np.mean(dv[ok_no_cata]))
+                zacc_no_cata = np.mean(dz[ok_no_cata])
+                vacc_no_cata = np.mean(dv[ok_no_cata])
+                dz_quant_no_cata = np.percentile(dz[ok_no_cata], (2.5, 16, 50, 84, 97.5))
+                dv_quant_no_cata = np.percentile(dv[ok_no_cata], (2.5, 16, 50, 84, 97.5))
+                dz_err68_no_cata = (dz_quant_no_cata[3] - dz_quant_no_cata[1])/2.
+                dz_err95_no_cata = (dz_quant_no_cata[4] - dz_quant_no_cata[0])/2.
+                dv_err68_no_cata = (dv_quant_no_cata[3] - dv_quant_no_cata[1])/2.
+                dv_err95_no_cata = (dv_quant_no_cata[4] - dv_quant_no_cata[0])/2.
+                dz_acc50_no_cata = dz_quant_no_cata[2]
+                dv_acc50_no_cata = dv_quant_no_cata[2]
 
             # NMAD
             nmad_z = np.median(np.abs(dz[ok]-np.median(dz[ok])))
@@ -323,8 +362,10 @@ def main() :
             nmad_v *= 1.4826
 
             #pull
-            mu_pull = np.mean(pull[ok_no_cata])
-            sigma_pull = np.std(pull[ok_no_cata])
+            pull_ok_no_cata = np.where((zw==0) & (np.abs(dz)<0.0033) & (ez>0))[0]
+            pull = (bz[pull_ok_no_cata]-tz[pull_ok_no_cata])/ez[pull_ok_no_cata]
+            mu_pull = np.mean(pull)
+            sigma_pull = np.std(pull)
 
             # zwarn
             zw0 = len(np.where(zw == 0)[0])
@@ -335,14 +376,20 @@ def main() :
             log.info("%s: Precision and accuracy (zwarn=0)"%o)
             log.info("=====================================")
             log.info("sigma_z: %f, mu_z: %f"%(zerr,zacc))
+            log.info("quantile: dz_err68: %f"%(dz_err68))
+            log.info("quantile: dz_err95: %f"%(dz_err95))
+            log.info("quantile: dz_acc50: %f"%(dz_acc50))
             log.info("NMAD_z: %f"%nmad_z)
             log.info("sigma_v: %f, mu_v: %f"%(verr,vacc))
+            log.info("quantile: dv_err68: %f"%(dv_err68))
+            log.info("quantile: dv_err95: %f"%(dv_err95))
+            log.info("quantile: dv_acc50: %f"%(dv_acc50))
             log.info("NMAD_v: %f"%nmad_v)
             if req is not None:
-                if (zerr>req['SIG_Z']):
-                    log.info("sigma_z & sigma_v do not meet DESI requirements on precision for %s"%o)
-                if (zacc>req['BIAS_Z']):
-                    log.info("mu_z & mu_v do not meet DESI requirements on bias for %s"%o)
+                if (dz_err68>req['SIG_Z']):
+                    log.info("dz_err68 & dv_err68 do not meet DESI requirements on precision for %s"%o)
+                if (dz_acc50>req['BIAS_Z']):
+                    log.info("dz_acc50 & dv_acc50 do not meet DESI requirements on bias for %s"%o)
             log.info(" ")
             if (len(ok) != len(ok_no_cata)):
                 log.info("=====================================")
@@ -350,26 +397,38 @@ def main() :
                 log.info("zwarn=0 without catastrophic failures")
                 log.info("=====================================")
                 log.info("sigma_z: %f, mu_z: %f"%(zerr_no_cata,zacc_no_cata))
+                log.info("quantile: dz_err68: %f"%(dz_err68_no_cata))
+                log.info("quantile: dz_err95: %f"%(dz_err95_no_cata))
+                log.info("quantile: dz_acc50: %f"%(dz_acc50_no_cata))
                 log.info("sigma_v: %f, mu_v: %f"%(verr_no_cata,vacc_no_cata))
+                log.info("quantile: dv_err68: %f"%(dv_err68_no_cata))
+                log.info("quantile: dv_err95: %f"%(dv_err95_no_cata))
+                log.info("quantile: dv_acc50: %f"%(dv_acc50_no_cata))
                 if req is not None:
-                    if (zerr_no_cata>req['SIG_Z']):
-                        log.info("sigma_z & sigma_v do not meet DESI requirements on precision for %s"%o)
-                    if (zacc_no_cata>req['BIAS_Z']):
-                        log.info("mu_z & mu_v do not meet DESI requirements on bias for %s"%o)
+                    if (dz_err68_no_cata>req['SIG_Z']):
+                        log.info("dz_err68 & dv_err68 do not meet DESI requirements on precision for %s"%o)
+                    if (dz_acc50_no_cata>req['BIAS_Z']):
+                        log.info("dz_acc50 & dv_acc50 do not meet DESI requirements on bias for %s"%o)
                 log.info(" ")
 
             file.write("=====================================\n")
             file.write("%s: Precision and accuracy (zwarn=0)\n"%o)
             file.write("=====================================\n")
             file.write("sigma_z: %f, mu_z: %f\n"%(zerr,zacc))
+            file.write("quantile: dz_err68: %f\n"%(dz_err68))
+            file.write("quantile: dz_err95: %f\n"%(dz_err95))
+            file.write("quantile: dz_acc50: %f\n"%(dz_acc50))
             file.write("NMAD_z: %f\n"%nmad_z)
             file.write("sigma_v: %f, mu_v: %f\n"%(verr,vacc))
+            file.write("quantile: dv_err68: %f\n"%(dv_err68))
+            file.write("quantile: dv_err95: %f\n"%(dv_err95))
+            file.write("quantile: dv_acc50: %f\n"%(dv_acc50))
             file.write("NMAD_v: %f\n"%nmad_v)
             if req is not None:
-                if (zerr>req['SIG_Z']):
-                    file.write("sigma_z & sigma_v do not meet DESI requirements on precision for %s\n"%o)
-                if (zacc>req['BIAS_Z']):
-                    file.write("mu_z & mu_v do not meet DESI requirements on bias for %s\n"%o)
+                if (dz_err68>req['SIG_Z']):
+                    file.write("dz_err68 & dv_err68 do not meet DESI requirements on precision for %s\n"%o)
+                if (dz_acc50>req['BIAS_Z']):
+                    file.write("dz_acc50 & dv_acc50 do not meet DESI requirements on bias for %s\n"%o)
             file.write("\n")
             if (len(ok) != len(ok_no_cata)):
                 file.write("=====================================\n")
@@ -377,12 +436,18 @@ def main() :
                 file.write("zwarn=0 without catastrophic failures\n")
                 file.write("=====================================\n")
                 file.write("sigma_z: %f, mu_z: %f\n"%(zerr_no_cata,zacc_no_cata))
+                file.write("quantile: dz_err68: %f\n"%(dz_err68_no_cata))
+                file.write("quantile: dz_err95: %f\n"%(dz_err95_no_cata))
+                file.write("quantile: dz_acc50: %f\n"%(dz_acc50_no_cata))
                 file.write("sigma_v: %f, mu_v: %f\n"%(verr_no_cata,vacc_no_cata))
+                file.write("quantile: dv_err68: %f\n"%(dv_err68_no_cata))
+                file.write("quantile: dv_err95: %f\n"%(dv_err95_no_cata))
+                file.write("quantile: dv_acc50: %f\n"%(dv_acc50_no_cata))
                 if req is not None:
-                    if (zerr_no_cata>req['SIG_Z']):
-                        file.write("sigma_z & sigma_v do not meet DESI requirements on precision for %s\n"%o)
-                    if (zacc_no_cata>req['BIAS_Z']):
-                        file.write("mu_z & mu_v do not meet DESI requirements on bias for %s\n"%o)
+                    if (dz_err68_no_cata>req['SIG_Z']):
+                        file.write("dz_err68 & dv_err68 do not meet DESI requirements on precision for %s\n"%o)
+                    if (dz_acc50_no_cata>req['BIAS_Z']):
+                        file.write("dz_acc50 & dv_acc50 do not meet DESI requirements on bias for %s\n"%o)
                 file.write("\n")
 
 
@@ -412,14 +477,30 @@ def main() :
                 efficiency_oII = float(len(true_pos_oII))/float(total_oII)
             
                 #- computes purity                                                             
-                purity_oII = float(len(true_pos_oII))/float((len(true_pos_oII)+len(false_pos)))
+                purity_oII = float(len(true_pos_oII))/float((len(true_pos_oII)+len(false_pos_oII)))
 
                 #- catastrophic failures
-                cata_fail_oII = float(len(false_pos_oII))/float(total_oII)
+#                cata_fail_oII = float(len(false_pos_oII))/float(total_oII)
+                cata_fail_oII = float(len(false_pos_oII))/float((len(true_pos_oII)+len(false_pos_oII)))
 
                 #- figure of merit
                 fom_oII = efficiency_oII*purity_oII
-               
+                
+                oii8e17 = np.where((np.abs(dz)<0.0033) & (zw==0) & (trfloii>8e-17))[0]
+                stdzoii = np.std(dz[oii8e17])
+                stdvoii = np.std(dv[oii8e17])
+                acczoii = np.mean(dz[oii8e17])
+                accvoii = np.mean(dv[oii8e17])
+                dz_quant_oii = np.percentile(dz[oii8e17], (2.5, 16, 50, 84, 97.5))
+                dv_quant_oii = np.percentile(dv[oii8e17], (2.5, 16, 50, 84, 97.5))
+                dz_err68_oii = (dz_quant_oii[3] - dz_quant_oii[1])/2.
+                dz_err95_oii = (dz_quant_oii[4] - dz_quant_oii[0])/2.
+                dv_err68_oii = (dv_quant_oii[3] - dv_quant_oii[1])/2.
+                dv_err95_oii = (dv_quant_oii[4] - dv_quant_oii[0])/2.
+                dz_acc50_oii = dz_quant_oii[2]
+                dv_acc50_oii = dv_quant_oii[2]
+
+
                 log.info("=====================================")
                 log.info("%s: For OII > 8e-17 erg/s/cm2"%o)
                 log.info("=====================================")
@@ -428,10 +509,18 @@ def main() :
                     if (efficiency_oII < req['EFFICIENCY']):
                         log.info("Efficiency_oII does not meet DESI requirements for %s"%o)
                 log.info('Purity_oII: %d/%d=%f'%(len(true_pos_oII),(len(true_pos_oII)+len(false_pos_oII)),purity_oII))
-                log.info('Catastrophic failures_oII: %d/%d=%f'%(len(false_pos_oII),total_oII,cata_fail_oII))
+                log.info('Catastrophic failures_oII: %d/%d=%f'%(len(false_pos_oII),len(true_pos_oII)+len(false_pos_oII),cata_fail_oII))
                 if req is not None:
                     if (cata_fail_oII>req['CATA_FAIL_MAX']):
                         log.info("Catastrophic failure rate does not meet DESI requirements for %s"%o)
+                log.info('sigma_z_oii: %f, mu_z_oii: %f'%(stdzoii, acczoii))
+                log.info('quantile: dz_err68_oii: %f'%(dz_err68_oii))
+                log.info('quantile: dz_err95_oii: %f'%(dz_err95_oii))
+                log.info('quantile: dz_acc50_oii: %f'%(dz_acc50_oii))
+                log.info('sigma_v_oii: %f, mu_v_oii: %f'%(stdvoii, accvoii))
+                log.info('quantile: dv_err68_oii: %f'%(dv_err68_oii))
+                log.info('quantile: dv_err95_oii: %f'%(dv_err95_oii))
+                log.info('quantile: dv_acc50_oii: %f'%(dv_acc50_oii))
                 log.info('FOM_oII: %f x %f=%f'%(efficiency_oII,purity_oII,fom_oII))
                 log.info(" ")
 
@@ -441,12 +530,20 @@ def main() :
                 file.write('Efficiency_oII: %d/%d=%f\n'%(len(true_pos_oII),total_oII,efficiency_oII))
                 if req is not None:
                     if (efficiency_oII < req['EFFICIENCY']):
-                        file.write("Efficiency_oII does not meet DESI requirements for %s"%o)
+                        file.write("Efficiency_oII does not meet DESI requirements for %s\n"%o)
                 file.write('Purity_oII: %d/%d=%f\n'%(len(true_pos_oII),(len(true_pos_oII)+len(false_pos_oII)),purity_oII))
-                file.write('Catastrophic failures_oII: %d/%d=%f\n'%(len(false_pos_oII),total_oII,cata_fail_oII))
+                file.write('Catastrophic failures_oII: %d/%d=%f\n'%(len(false_pos_oII),len(true_pos_oII)+len(false_pos_oII),cata_fail_oII))
                 if req is not None:
                     if (cata_fail_oII>req['CATA_FAIL_MAX']):
-                        file.write("Catastrophic failure rate does not meet DESI requirements for %s"%o)
+                        file.write("Catastrophic failure rate does not meet DESI requirements for %s\n"%o)
+                file.write('sigma_z_oii: %f, mu_z_oii: %f\n'%(stdzoii, acczoii))
+                file.write('quantile: dz_err68_oii: %f\n'%(dz_err68_oii))
+                file.write('quantile: dz_err95_oii: %f\n'%(dz_err95_oii))
+                file.write('quantile: dz_acc50_oii: %f\n'%(dz_acc50_oii)) 
+                file.write('sigma_v_oii: %f, mu_v_oii: %f\n'%(stdvoii, accvoii))
+                file.write('quantile: dv_err68_oii: %f\n'%(dv_err68_oii))
+                file.write('quantile: dv_err95_oii: %f\n'%(dv_err95_oii))
+                file.write('quantile: dv_acc50_oii: %f\n'%(dv_acc50_oii))
                 file.write('FOM_oII: %f x %f=%f\n'%(efficiency_oII,purity_oII,fom_oII))
                 file.write("\n")
 
@@ -461,7 +558,7 @@ def main() :
                 if (efficiency < req['EFFICIENCY']):
                     log.info("Efficiency does not meet DESI requirements for %s"%o)
             log.info('Purity: %d/%d=%f'%(len(true_pos),(len(true_pos)+len(false_pos)),purity))
-            log.info('Catastrophic failures: %d/%d=%f'%(len(false_pos),total,cata_fail))
+            log.info('Catastrophic failures: %d/%d=%f'%(len(false_pos),len(true_pos)+len(false_pos),cata_fail))
             if req is not None:
                 if (cata_fail>req['CATA_FAIL_MAX']):
                     log.info("Catastrophic failure rate does not meet DESI requirements for %s"%o)
@@ -479,7 +576,7 @@ def main() :
                 if (efficiency < req['EFFICIENCY']):
                     file.write("Efficiency does not meet DESI requirements for %s\n"%o)
             file.write('Purity: %d/%d=%f\n'%(len(true_pos),(len(true_pos)+len(false_pos)),purity))
-            file.write('Catastrophic failures: %d/%d=%f\n'%(len(false_pos),total,cata_fail))
+            file.write('Catastrophic failures: %d/%d=%f\n'%(len(false_pos),len(true_pos)+len(false_pos),cata_fail))
             if req is not None:
                 if (cata_fail>req['CATA_FAIL_MAX']):
                     file.write("Catastrophic failure rate does not meet DESI requirements for %s\n"%o)
@@ -509,165 +606,166 @@ def main() :
                 
             #- plots
 
-            ok=np.where(zw==0)[0]
-            cata = np.where((zw == 0) & (np.abs(dz)>0.0033))[0]
-            not_ok = np.where(zw !=0)[0]
+            if (args.plots):
+                ok=np.where(zw==0)[0]
+                cata = np.where((zw == 0) & (np.abs(dz)>0.0033))[0]
+                not_ok = np.where(zw !=0)[0]
 #            ok_no_cata = np.where((zw == 0) & (np.abs(dz)<0.0033))[0]
 
             #- histograms
             
-            pylab.figure()
-            n, bins, patches = pylab.hist(dz[ok_no_cata], 30, normed=1, histtype='stepfilled')
-            pylab.setp(patches, 'facecolor', 'b', 'alpha', 0.75)
-            if (o != 'QSO'):
-                muz = np.mean(dz[ok_no_cata])
-                sigmaz = np.std(dz[ok_no_cata])
-                gauss = pylab.normpdf(bins, muz, sigmaz)
-                l = pylab.plot(bins, gauss, 'k--', linewidth=1.5, label="mu=%2.0f *1e-6, sig=%2.0f *1e-6"%(muz/1e-6,sigmaz/1e-6))
-                pylab.legend()
-            pylab.xlabel("(zb-zt)/(1+zt) (ZWARN=0 without catastrophic failures)")
-            pylab.ylabel("Num. of %s targets per bin"%o)
+                pylab.figure()
+                n, bins, patches = pylab.hist(dz[ok_no_cata], 30, normed=1, histtype='stepfilled')
+                pylab.setp(patches, 'facecolor', 'b', 'alpha', 0.75)
+                if (o != 'QSO'):
+                    muz = np.mean(dz[ok_no_cata])
+                    sigmaz = np.std(dz[ok_no_cata])
+                    gauss = pylab.normpdf(bins, muz, sigmaz)
+                    l = pylab.plot(bins, gauss, 'k--', linewidth=1.5, label="mu=%2.0f *1e-6, sig=%2.0f *1e-6"%(muz/1e-6,sigmaz/1e-6))
+                    pylab.legend()
+                pylab.xlabel("(zb-zt)/(1+zt) (ZWARN=0 without catastrophic failures)")
+                pylab.ylabel("Num. of %s targets per bin"%o)
             
 
-            pylab.figure()
-            n, bins, patches = pylab.hist(dv[ok_no_cata], 30, normed=1, histtype='stepfilled')
-            pylab.setp(patches, 'facecolor', 'g', 'alpha', 0.75)
-            if (o != 'QSO'): 
-                muv = np.mean(dv[ok_no_cata])
-                sigmav = np.std(dv[ok_no_cata])
-                gauss = pylab.normpdf(bins, muv, sigmav)
-                l = pylab.plot(bins, gauss, 'k--', linewidth=1.5, label="mu=%2.0f, sig=%2.0f"%(muv,sigmav))
-                pylab.legend()
-            pylab.xlabel("Delta v = c(zb-zt)/(1+zt) [km/s] (ZWARN=0 without catastrophic failures)")
-            pylab.ylabel("Num. of %s targets per bin"%o)
+                pylab.figure()
+                n, bins, patches = pylab.hist(dv[ok_no_cata], 30, normed=1, histtype='stepfilled')
+                pylab.setp(patches, 'facecolor', 'g', 'alpha', 0.75)
+                if (o != 'QSO'): 
+                    muv = np.mean(dv[ok_no_cata])
+                    sigmav = np.std(dv[ok_no_cata])
+                    gauss = pylab.normpdf(bins, muv, sigmav)
+                    l = pylab.plot(bins, gauss, 'k--', linewidth=1.5, label="mu=%2.0f, sig=%2.0f"%(muv,sigmav))
+                    pylab.legend()
+                pylab.xlabel("Delta v = c(zb-zt)/(1+zt) [km/s] (ZWARN=0 without catastrophic failures)")
+                pylab.ylabel("Num. of %s targets per bin"%o)
 
             #- pull distribution
 
-            pylab.figure()
-            n, bins, patches = pylab.hist(pull[ok_no_cata], 30, normed=1, histtype='stepfilled')
-            pylab.setp(patches, 'facecolor', 'c', 'alpha', 0.75)
-            mu_pull = np.mean(pull[ok_no_cata])
-            sigma_pull = np.std(pull[ok_no_cata])
-            gauss = pylab.normpdf(bins, mu_pull, sigma_pull)
-            l = pylab.plot(bins, gauss, 'k--', linewidth=1.5, label="mu=%2.3f, sig=%2.3f"%(mu_pull,sigma_pull))
-            pylab.legend()
-            mu=0.
-            sig=1.
-            gauss1 = pylab.normpdf(bins, mu, sig)
-            l1 = pylab.plot(bins, gauss1, 'k--', linewidth=1.5, color='r', label="mu=0., sig=1.")
-            pylab.legend()
-            pylab.xlabel("Pull = (zb-<zt>)/zerr (ZWARN=0 without catastrophic failures)")
-            pylab.ylabel("Num. of %s targets per bin"%o)
+                pylab.figure()
+                n, bins, patches = pylab.hist(pull, 30, normed=1, histtype='stepfilled')
+                pylab.setp(patches, 'facecolor', 'c', 'alpha', 0.75)
+                #            mu_pull = np.mean(pull[ok_no_cata])
+                #            sigma_pull = np.std(pull[ok_no_cata])
+                gauss = pylab.normpdf(bins, mu_pull, sigma_pull)
+                l = pylab.plot(bins, gauss, 'k--', linewidth=1.5, label="mu=%2.3f, sig=%2.3f"%(mu_pull,sigma_pull))
+                pylab.legend()
+                mu=0.
+                sig=1.
+                gauss1 = pylab.normpdf(bins, mu, sig)
+                l1 = pylab.plot(bins, gauss1, 'k--', linewidth=1.5, color='r', label="mu=0., sig=1.")
+                pylab.legend()
+                pylab.xlabel("Pull = (zb-<zt>)/zerr (ZWARN=0 without catastrophic failures)")
+                pylab.ylabel("Num. of %s targets per bin"%o)
 
             #- other plots
 
-            pylab.figure()
-            nx = 1
-            if len(cata) !=0:
-                ny = 3
-            else:
-                ny = 2
-            ai = 1
+                pylab.figure()
+                nx = 1
+                if len(cata) !=0:
+                    ny = 3
+                else:
+                    ny = 2
+                ai = 1
 
             # catastrophic failures in green
             # zwarn != 0 in red
             # zw =0 no catastrophic in blue
 
-            a=pylab.subplot(ny,nx,ai); ai +=1
-            a.errorbar(mean_ston[ok],dz[ok],errz[ok],fmt="bo")
-            a.errorbar(mean_ston[cata],dz[cata],errz[cata],fmt="go")
-            a.set_xlabel("%s <S/N>"%o)
-            a.set_ylabel("(zb-zt)/(1+zt) (ZWARN=0)")
-
-            a=pylab.subplot(ny,nx,ai); ai +=1
-            a.errorbar(mean_ston[ok],dz[ok],errz[ok],fmt="bo")
-            a.errorbar(mean_ston[not_ok],dz[not_ok],errz[not_ok],fmt="ro")
-            a.errorbar(mean_ston[cata],dz[cata],errz[cata],fmt="go")
-            a.set_xlabel("%s <S/N> "%o)
-            a.set_ylabel("(zb-zt)/(1+zt) (all ZWARN)")
-
-            if len(cata) !=0:
                 a=pylab.subplot(ny,nx,ai); ai +=1
-                a.errorbar(mean_ston[ok_no_cata],dz[ok_no_cata],errz[ok_no_cata],fmt="bo")
+                a.errorbar(mean_ston[ok],dz[ok],errz[ok],fmt="bo")
+                a.errorbar(mean_ston[cata],dz[cata],errz[cata],fmt="go")
+                a.set_xlabel("%s <S/N>"%o)
+                a.set_ylabel("(zb-zt)/(1+zt) (ZWARN=0)")
+
+                a=pylab.subplot(ny,nx,ai); ai +=1
+                a.errorbar(mean_ston[ok],dz[ok],errz[ok],fmt="bo")
+                a.errorbar(mean_ston[not_ok],dz[not_ok],errz[not_ok],fmt="ro")
+                a.errorbar(mean_ston[cata],dz[cata],errz[cata],fmt="go")
                 a.set_xlabel("%s <S/N> "%o)
-                a.set_ylabel("(zb-zt)/(1+zt) (ZWARN=0, no cata. fail.)")
+                a.set_ylabel("(zb-zt)/(1+zt) (all ZWARN)")
+
+                if len(cata) !=0:
+                    a=pylab.subplot(ny,nx,ai); ai +=1
+                    a.errorbar(mean_ston[ok_no_cata],dz[ok_no_cata],errz[ok_no_cata],fmt="bo")
+                    a.set_xlabel("%s <S/N> "%o)
+                    a.set_ylabel("(zb-zt)/(1+zt) (ZWARN=0, no cata. fail.)")
 
 
-            if (o == 'ELG'):
+                if (o == 'ELG'):
+                    pylab.figure()
+                    nx=1
+                    if len(cata) !=0:
+                        ny=3
+                    else:
+                        ny=2
+                    ai=1
+
+                    a=pylab.subplot(ny,nx,ai); ai +=1
+                    a.errorbar(zb_zt['OIIFLUX'][ok],dz[ok],errz[ok],fmt="bo")
+                    a.errorbar(zb_zt['OIIFLUX'][cata],dz[cata],errz[cata],fmt="ro")
+                    a.set_xlabel("%s True [OII] flux"%o)
+                    a.set_ylabel("(zb-zt)/(1+zt) (all ZWARN)")
+
+                    a=pylab.subplot(ny,nx,ai); ai +=1
+                    a.errorbar(zb_zt['OIIFLUX'][ok],dz[ok],errz[ok],fmt="bo")
+                    a.errorbar(zb_zt['OIIFLUX'][not_ok],dz[not_ok],errz[not_ok],fmt="ro")
+                    a.errorbar(zb_zt['OIIFLUX'][cata],dz[cata],errz[cata],fmt="go")
+                    a.set_xlabel("%s True [OII] flux"%o)
+                    a.set_ylabel("(zb-zt)/(1+zt) (ZWARN=0)")
+                    
+                    if len(cata) != 0:
+                        a=pylab.subplot(ny,nx,ai); ai +=1
+                        a.errorbar(zb_zt['OIIFLUX'][ok_no_cata],dz[ok_no_cata],errz[ok_no_cata],fmt="bo")
+                        a.set_xlabel("%s True [OII] flux"%o)
+                        a.set_ylabel("(zb-zt)/(1+zt) (ZWARN=0, no cata. fail.)")
+
                 pylab.figure()
-                nx=1
+                nx=2
                 if len(cata) !=0:
                     ny=3
                 else:
                     ny=2
                 ai=1
-
-                a=pylab.subplot(ny,nx,ai); ai +=1
-                a.errorbar(zb_zt['OIIFLUX'][ok],dz[ok],errz[ok],fmt="bo")
-                a.errorbar(zb_zt['OIIFLUX'][cata],dz[cata],errz[cata],fmt="ro")
-                a.set_xlabel("%s True [OII] flux"%o)
-                a.set_ylabel("(zb-zt)/(1+zt) (all ZWARN)")
-
-                a=pylab.subplot(ny,nx,ai); ai +=1
-                a.errorbar(zb_zt['OIIFLUX'][ok],dz[ok],errz[ok],fmt="bo")
-                a.errorbar(zb_zt['OIIFLUX'][not_ok],dz[not_ok],errz[not_ok],fmt="ro")
-                a.errorbar(zb_zt['OIIFLUX'][cata],dz[cata],errz[cata],fmt="go")
-                a.set_xlabel("%s True [OII] flux"%o)
-                a.set_ylabel("(zb-zt)/(1+zt) (ZWARN=0)")
-
-                if len(cata) != 0:
-                    a=pylab.subplot(ny,nx,ai); ai +=1
-                    a.errorbar(zb_zt['OIIFLUX'][ok_no_cata],dz[ok_no_cata],errz[ok_no_cata],fmt="bo")
-                    a.set_xlabel("%s True [OII] flux"%o)
-                    a.set_ylabel("(zb-zt)/(1+zt) (ZWARN=0, no cata. fail.)")
-
-            pylab.figure()
-            nx=2
-            if len(cata) !=0:
-                ny=3
-            else:
-                ny=2
-            ai=1
     
-            a=pylab.subplot(ny,nx,ai); ai +=1
-            a.errorbar(tz[ok],dz[ok],errz[ok],fmt="o",c="b")
-            a.errorbar(tz[not_ok],dz[not_ok],errz[not_ok],fmt="o",c="r")
-            a.errorbar(tz[cata],dz[cata],errz[cata],fmt="o",c="g")
-            a.set_xlabel("%s zt (all ZWARN)"%o)
-            a.set_ylabel("(zb-zt)/(1+zt) (all ZWARN)")
-            
-            a=pylab.subplot(ny,nx,ai); ai +=1
-            a.errorbar(bz[ok],dz[ok],errz[ok],fmt="o",c="b")
-            a.errorbar(bz[not_ok],dz[not_ok],errz[not_ok],fmt="o",c="r")
-            a.errorbar(bz[cata],dz[cata],errz[cata],fmt="o",c="g")
-            a.set_xlabel("%s zb (all ZWARN)"%o)
-            a.set_ylabel("(zb-zt)/(1+zt)")
-            
-            a=pylab.subplot(ny,nx,ai); ai +=1
-            a.errorbar(tz[ok],dz[ok],errz[ok],fmt="o",c="b")
-            a.errorbar(tz[cata],dz[cata],errz[cata],fmt="o",c="g")
-            a.set_xlabel("%s zt (ZWARN=0)"%o)
-            a.set_ylabel("(zb-zt)/(1+zt)")
-
-            a=pylab.subplot(ny,nx,ai); ai +=1
-            a.errorbar(bz[ok],dz[ok],errz[ok],fmt="o",c="b")
-            a.errorbar(bz[cata],dz[cata],errz[cata],fmt="o",c="g")
-            a.set_xlabel("%s zb (ZWARN=0)"%o)
-            a.set_ylabel("(zb-zt)/(1+zt)")
-
-            if len(cata) !=0:
                 a=pylab.subplot(ny,nx,ai); ai +=1
-                a.errorbar(tz[ok_no_cata],dz[ok_no_cata],errz[ok_no_cata],fmt="o",c="b")
-                a.set_xlabel("%s zt (ZWARN=0, no cata. fail.)"%o)
+                a.errorbar(tz[ok],dz[ok],errz[ok],fmt="o",c="b")
+                a.errorbar(tz[not_ok],dz[not_ok],errz[not_ok],fmt="o",c="r")
+                a.errorbar(tz[cata],dz[cata],errz[cata],fmt="o",c="g")
+                a.set_xlabel("%s zt (all ZWARN)"%o)
+                a.set_ylabel("(zb-zt)/(1+zt) (all ZWARN)")
+            
+                a=pylab.subplot(ny,nx,ai); ai +=1
+                a.errorbar(bz[ok],dz[ok],errz[ok],fmt="o",c="b")
+                a.errorbar(bz[not_ok],dz[not_ok],errz[not_ok],fmt="o",c="r")
+                a.errorbar(bz[cata],dz[cata],errz[cata],fmt="o",c="g")
+                a.set_xlabel("%s zb (all ZWARN)"%o)
+                a.set_ylabel("(zb-zt)/(1+zt)")
+            
+                a=pylab.subplot(ny,nx,ai); ai +=1
+                a.errorbar(tz[ok],dz[ok],errz[ok],fmt="o",c="b")
+                a.errorbar(tz[cata],dz[cata],errz[cata],fmt="o",c="g")
+                a.set_xlabel("%s zt (ZWARN=0)"%o)
                 a.set_ylabel("(zb-zt)/(1+zt)")
 
                 a=pylab.subplot(ny,nx,ai); ai +=1
-                a.errorbar(bz[ok_no_cata],dz[ok_no_cata],errz[ok_no_cata],fmt="o",c="b")
-                a.set_xlabel("%s zb (All ZWARN, no cata. fail.)"%o)
+                a.errorbar(bz[ok],dz[ok],errz[ok],fmt="o",c="b")
+                a.errorbar(bz[cata],dz[cata],errz[cata],fmt="o",c="g")
+                a.set_xlabel("%s zb (ZWARN=0)"%o)
                 a.set_ylabel("(zb-zt)/(1+zt)")
 
+                if len(cata) !=0:
+                    a=pylab.subplot(ny,nx,ai); ai +=1
+                    a.errorbar(tz[ok_no_cata],dz[ok_no_cata],errz[ok_no_cata],fmt="o",c="b")
+                    a.set_xlabel("%s zt (ZWARN=0, no cata. fail.)"%o)
+                    a.set_ylabel("(zb-zt)/(1+zt)")
+                    
+                    a=pylab.subplot(ny,nx,ai); ai +=1
+                    a.errorbar(bz[ok_no_cata],dz[ok_no_cata],errz[ok_no_cata],fmt="o",c="b")
+                    a.set_xlabel("%s zb (All ZWARN, no cata. fail.)"%o)
+                    a.set_ylabel("(zb-zt)/(1+zt)")
 
-            pylab.show()                
+
+                pylab.show()                
 
 
 if __name__ == '__main__':
