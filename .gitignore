@@ -31,3 +31,8 @@ distribute-*.tar.gz
 
 # Mac OSX
 .DS_Store
+
+# Binary files
+*.fits
+*.png
+*.pdf
