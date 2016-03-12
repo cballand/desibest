@@ -4,10 +4,13 @@ from __future__ import print_function, division
 import os
 import os.path
 import warnings
+import sys
 
 import yaml
 
 import numpy as np
+
+from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 
 from astropy.utils.compat import argparse
@@ -26,14 +29,27 @@ def summarize(args=None):
     """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-v', '--verbose', action = 'store_true',
+    parser.add_argument('-v', '--verbose', action='store_true',
         help='provide verbose output on progress')
+    parser.add_argument('-o', '--output', type=str, default=None,
+        help='save plots to the specified pdf file instead of displaying them')
     parser.add_argument('config', type=str, metavar='YAML',
         help='Name of YAML configuration file to use')
     args = parser.parse_args(args)
 
     with open(args.config) as f:
         config = yaml.safe_load(f)
+
+    if args.output:
+        _, ext = os.path.splitext(args.output)
+        if ext not in ('', '.pdf'):
+            print('Can only save plots to a .pdf file')
+            return -1
+        if ext == '':
+            args.output += '.pdf'
+        pdf_output = PdfPages(args.output)
+    else:
+        pdf_output = None
 
     title = config['title']
     if args.verbose:
@@ -166,7 +182,21 @@ def summarize(args=None):
             figure.subplots_adjust(
                 left=0.08, bottom=0.07, right=0.92, top=0.95,
                 hspace=0., wspace=0.)
-            plt.show()
+
+            if pdf_output:
+                pdf_output.savefig()
+                plt.close()
+            else:
+                print('Close the plot window to continue...')
+                sys.stdout.flush()
+                plt.show()
+
+    if pdf_output:
+        meta = pdf_output.infodict()
+        meta['Title'] = title
+        pdf_output.close()
+        if args.verbose:
+            print('Saved plots to {0}'.format(args.output))
 
 
 if __name__ == '__main__':
