@@ -12,14 +12,17 @@ classes:
         catastrophic: 1000 # km/s
         max_frac: 0.05
         plots:
-            TRUEZ: { n: 10, min: 0.6, max: 1.6, label: 'redshift z' }
+            TRUEZ: { n: 15, min: 0.6, max: 1.6, label: 'redshift', overlap: 1 }
+            RMAG: { n: 12, min: 21.0, max: 23.4, label: 'r-band magnitude', overlap: 0}
+            OIIFLUX: { n: 15, min: 0.0, max: 4.0e-16, label: '[OII] flux', overlap: 1 }
     LRG:
         truth: brick-b-lrg-5000.fits
         max_dv: 150 # km/s
         catastrophic: 1000 # km/s
         max_frac: 0.05
         plots:
-            TRUEZ: { n: 10, min: 0.5, max: 1.0, label: 'redshift z' }
+            TRUEZ: { n: 12, min: 0.5, max: 1.0, label: 'redshift', overlap: 2 }
+            ZMAG: { n: 15, min: 19.0, max: 20.5, label: 'z-band magnitude', overlap: 2 }
 
 zbest:
     redrock:

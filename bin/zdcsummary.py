@@ -110,6 +110,8 @@ def summarize(args=None):
             x = truth[plot_var_name].data
             if args.verbose:
                 print('Plotting {0} {1}'.format(class_name, plot_var_name))
+            n, x_min, x_max = node['n'], node['min'], node['max']
+            overlap = node['overlap']
 
             # Plot the performance of each fitter.
             for i in range(nrows * ncols):
@@ -124,9 +126,8 @@ def summarize(args=None):
                     bad = dv[ok] > catastrophic
                     if dv is not None:
                         lhs, rhs = desibest.utility.plot_slices(
-                            x=x, y=dv, ok=ok, bad=bad, x_lo=node['min'],
-                            x_hi=node['max'], num_slices=node['n'],
-                            y_cut=max_dv, axis=axis)
+                            x=x, y=dv, ok=ok, bad=bad, x_lo=x_min, x_hi=x_max,
+                            num_slices=n, y_cut=max_dv, axis=axis)
                     # Add a label even if the fitter has no results.
                     xy = (0.5, 1.0)
                     coords = 'axes fraction'
@@ -149,21 +150,23 @@ def summarize(args=None):
                 else:
                     # Hide the last y-axis label except on the first row.
                     if row > 0:
-                        # Why is -2 required here when -1 works below???
+                        # Why is -2 required here??
                         plt.setp([rhs.get_yticklabels()[-2:]], visible=False)
                     rhs.set_ylabel('zwarn, catastrophic fit fraction')
 
                 if row < nrows - 1:
                     plt.setp([axis.get_xticklabels()], visible=False)
                 else:
-                    # Hide the last x-axis label except in the bottom right.
-                    if col < ncols - 1:
-                        plt.setp([axis.get_xticklabels()[-1:]], visible=False)
                     axis.set_xlabel('{0} {1}'.format(class_name, node['label']))
+                    # Hide overlapping x-axis labels except in the bottom right.
+                    if overlap and (col < ncols - 1):
+                        plt.setp(
+                            [axis.get_xticklabels()[-overlap:]], visible=False)
 
-        figure.subplots_adjust(
-            left=0.08, bottom=0.07, right=0.92, top=0.95, hspace=0., wspace=0.)
-        plt.show()
+            figure.subplots_adjust(
+                left=0.08, bottom=0.07, right=0.92, top=0.95,
+                hspace=0., wspace=0.)
+            plt.show()
 
 
 if __name__ == '__main__':
