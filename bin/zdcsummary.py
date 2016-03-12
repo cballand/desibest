@@ -78,7 +78,7 @@ def summarize(args=None):
 
         # Load the truth information.
         truth_name = node['truth']
-        truth = astropy.table.Table.read(truth_name, hdu='_TRUTH')
+        truth = astropy.table.Table.read(find_file(truth_name), hdu='_TRUTH')
         z_true = truth['TRUEZ'].data
         if args.verbose:
             print(
@@ -92,7 +92,7 @@ def summarize(args=None):
         for fitter_name in fitter_names:
             if class_name in zbest_dict[fitter_name]:
                 zbest = astropy.table.Table.read(
-                    zbest_dict[fitter_name][class_name], hdu='ZBEST')
+                    find_file(zbest_dict[fitter_name][class_name]), hdu='ZBEST')
                 # Calculate velocity residuals.
                 z_est = zbest['Z'].data
                 ok = (zbest['ZWARN'].data == 0)
@@ -139,8 +139,8 @@ def summarize(args=None):
                     fitter_name = fitter_names[i]
                     ok = ok_dict[fitter_name]
                     dv = dv_dict[fitter_name]
-                    bad = dv[ok] > catastrophic
                     if dv is not None:
+                        bad = dv[ok] > catastrophic
                         lhs, rhs = desibest.utility.plot_slices(
                             x=x, y=dv, ok=ok, bad=bad, x_lo=x_min, x_hi=x_max,
                             num_slices=n, y_cut=max_dv, axis=axis)
