@@ -22,7 +22,7 @@ CLIGHT_KM_S = astropy.constants.c.to(u.km / u.s).value
 
 
 def summarize(args=None):
-    """
+    """Generate summary plots specified by a YAML config file.
     """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -30,21 +30,22 @@ def summarize(args=None):
         help='provide verbose output on progress')
     parser.add_argument('config', type=str, metavar='YAML',
         help='Name of YAML configuration file to use')
-    parser.add_argument('--rows', type=int, metavar='N', default=2,
-        help='Number of rows in plot grids')
-    parser.add_argument('--cols', type=int, metavar='N', default=3,
-        help='Number of columns in plot grids')
     args = parser.parse_args(args)
 
     with open(args.config) as f:
         config = yaml.safe_load(f)
 
+    title = config['title']
+    if args.verbose:
+        print('Generating summary plots for "{0}"'.format(title))
+    nrows = config['rows']
+    ncols = config['cols']
     base = config['base']
     find_file = lambda name: os.path.join(base, name)
 
     zbest_dict = config['zbest']
     fitter_names = zbest_dict.keys()
-    assert len(fitter_names) <= args.rows * args.cols
+    assert len(fitter_names) <= nrows * ncols
 
     # Silence expected matplotlib warnings.
     warnings.simplefilter('ignore', category=FutureWarning)
@@ -56,6 +57,8 @@ def summarize(args=None):
 
         node = config['classes'][class_name]
         max_dv = node['max_dv']
+        catastrophic = node['catastrophic']
+        max_frac = node['max_frac']
 
         # Load the truth information.
         truth_name = node['truth']
@@ -99,8 +102,9 @@ def summarize(args=None):
 
             # Initialize a new page of plots.
             figure, axes = plt.subplots(
-                args.rows, args.cols, figsize=(11, 8.5), facecolor='white',
+                nrows, ncols, figsize=(11, 8.5), facecolor='white',
                 sharex=True, sharey=True)
+            figure.suptitle(title)
 
             # Plot the truth distribution for this variable.
             x = truth[plot_var_name].data
@@ -108,36 +112,49 @@ def summarize(args=None):
                 print('Plotting {0} {1}'.format(class_name, plot_var_name))
 
             # Plot the performance of each fitter.
-            for i in range(args.rows * args.cols):
-                row = i // args.cols
-                col = i % args.cols
+            for i in range(nrows * ncols):
+                row = i // ncols
+                col = i % ncols
                 axis = axes[row][col]
 
                 if i < len(fitter_names):
                     fitter_name = fitter_names[i]
                     ok = ok_dict[fitter_name]
                     dv = dv_dict[fitter_name]
+                    bad = dv[ok] > catastrophic
                     if dv is not None:
-                        desibest.utility.plot_slices(
-                            x=x[ok], y=dv[ok], x_lo=node['min'],
+                        lhs, rhs = desibest.utility.plot_slices(
+                            x=x, y=dv, ok=ok, bad=bad, x_lo=node['min'],
                             x_hi=node['max'], num_slices=node['n'],
                             y_cut=max_dv, axis=axis)
+                else:
+                    rhs = axis.twinx()
 
+                rhs.set_ylim(0., max_frac)
                 if col > 0:
                     plt.setp([axis.get_yticklabels()], visible=False)
                 else:
-                    axis.set_ylabel('$\Delta v$ [km/s]')
+                    axis.set_ylabel('Redshift fit residual $\Delta v$ [km/s]')
 
-                if row < args.rows - 1:
+                if col < ncols - 1:
+                    plt.setp([rhs.get_yticklabels()], visible=False)
+                else:
+                    # Hide the last y-axis label except on the first row.
+                    if row > 0:
+                        # Why is -2 required here when -1 works below???
+                        plt.setp([rhs.get_yticklabels()[-2:]], visible=False)
+                    rhs.set_ylabel('zwarn, catastrophic fit fraction')
+
+                if row < nrows - 1:
                     plt.setp([axis.get_xticklabels()], visible=False)
                 else:
                     # Hide the last x-axis label except in the bottom right.
-                    if col < args.cols - 1:
-                        plt.setp([axis.get_xticklabels()[-1]], visible=False)
+                    if col < ncols - 1:
+                        plt.setp([axis.get_xticklabels()[-1:]], visible=False)
                     axis.set_xlabel('{0} {1}'.format(class_name, node['label']))
 
         figure.subplots_adjust(
-            left=0.08, bottom=0.07, right=0.96, top=0.98, hspace=0., wspace=0.)
+            left=0.08, bottom=0.07, right=0.92, top=0.95, hspace=0., wspace=0.)
         plt.show()
 
 

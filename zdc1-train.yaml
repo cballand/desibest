@@ -1,0 +1,33 @@
+title: 'Redshift Data Challenge 1 Training Set'
+
+rows: 2
+cols: 3
+
+base: .
+
+classes:
+    ELG:
+        truth: brick-b-elg-5000.fits
+        max_dv: 150 # km/s
+        catastrophic: 1000 # km/s
+        max_frac: 0.05
+        plots:
+            TRUEZ: { n: 10, min: 0.6, max: 1.6, label: 'redshift z' }
+    LRG:
+        truth: brick-b-lrg-5000.fits
+        max_dv: 150 # km/s
+        catastrophic: 1000 # km/s
+        max_frac: 0.05
+        plots:
+            TRUEZ: { n: 10, min: 0.5, max: 1.0, label: 'redshift z' }
+
+zbest:
+    redrock:
+        ELG: zbest-training-elg-5000-rr.fits
+        LRG: zbest-training-lrg-5000-rr.fits
+    bayez:
+        ELG: bayez_elg_training_5k.fits
+        LRG: bayez_lrg_training_5k.fits
+    bayez2:
+        ELG: bayez_elg_training_5k.fits
+        LRG: bayez_lrg_training_5k.fits

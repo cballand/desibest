@@ -5,7 +5,7 @@ from __future__ import print_function, division
 import numpy as np
 
 
-def plot_slices(x, y, x_lo, x_hi, y_cut, num_slices=5, min_count=100,
+def plot_slices(x, y, ok, bad, x_lo, x_hi, y_cut, num_slices=5, min_count=100,
                 axis=None):
     """Scatter plot with 68, 95 percentiles superimposed in slices.
 
@@ -13,12 +13,16 @@ def plot_slices(x, y, x_lo, x_hi, y_cut, num_slices=5, min_count=100,
 
     Parameters
     ----------
-    x : array
+    x : array of float
         X-coordinates to scatter plot.  Points outside [x_lo, x_hi] are
         not displayed.
-    y : array
+    y : array of float
         Y-coordinates to scatter plot.  Y values are assumed to be roughly
         symmetric about zero.
+    ok : array of bool
+        Array of booleans that identify which fits are considered good.
+    bad : array of bool
+        Array of booleans that identify which fits have failed catastrophically.
     x_lo : float
         Minimum value of x to plot.
     x_hi : float
@@ -42,15 +46,13 @@ def plot_slices(x, y, x_lo, x_hi, y_cut, num_slices=5, min_count=100,
     if axis is None:
         axis = plt.gca()
 
-    # Assume that y is symmetric about zero.
-    axis.set_xlim(x_lo, x_hi)
-    axis.set_ylim(-1.25 * y_cut, +1.25 * y_cut)
     x_bins = np.linspace(x_lo, x_hi, num_slices + 1)
     x_i = np.digitize(x, x_bins) - 1
     limits = []
     counts = []
     for s in xrange(num_slices):
-        y_slice = y[x_i == s]
+        # Calculate percentile statistics for ok fits.
+        y_slice = y[ok & (x_i == s)]
         counts.append(len(y_slice))
         if counts[-1] > 0:
             limits.append(np.percentile(y_slice, (2.5, 16, 50, 84, 97.5)))
@@ -60,7 +62,8 @@ def plot_slices(x, y, x_lo, x_hi, y_cut, num_slices=5, min_count=100,
     counts = np.array(counts)
 
     # Plot scatter of all fits.
-    axis.scatter(x, y, s=15, marker='.', lw=0, color='blue', alpha=0.5)
+    axis.scatter(x[ok], y[ok], s=15, marker='.', lw=0, color='b', alpha=0.5)
+    axis.scatter(x[~ok], y[~ok], s=15, marker='x', lw=0, color='k', alpha=0.5)
 
     # Plot quantiles in slices with enough fits.
     stepify = lambda y: np.vstack([y, y]).transpose().flatten()
@@ -80,6 +83,26 @@ def plot_slices(x, y, x_lo, x_hi, y_cut, num_slices=5, min_count=100,
             axis.plot(xstack[s], y_med[s], 'r-', lw=2.)
 
     # Plot cut lines.
-    axis.axhline(+y_cut, ls='-', color='k')
-    axis.axhline(-y_cut, ls='-', color='k')
-    axis.grid()
+    axis.axhline(+y_cut, ls=':', color='k')
+    axis.axhline(0., ls='-', color='k')
+    axis.axhline(-y_cut, ls=':', color='k')
+
+    # Plot histograms of of not ok and catastrophic fits.
+    rhs = axis.twinx()
+
+    weights = np.ones_like(x[bad]) / len(x[ok])
+    if len(weights) > 0:
+        rhs.hist(
+            x[bad], range=(x_lo, x_hi), bins=num_slices, histtype='step',
+            weights=weights, color='k')
+
+    weights = np.ones_like(x[~ok]) / len(x)
+    if len(weights) > 0:
+        rhs.hist(
+            x[~ok], range=(x_lo, x_hi), bins=num_slices, histtype='step',
+            weights=weights, color='k', ls='dashed')
+
+    axis.set_ylim(-1.25 * y_cut, +1.25 * y_cut)
+    axis.set_xlim(x_lo, x_hi)
+
+    return axis, rhs
