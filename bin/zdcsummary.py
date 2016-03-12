@@ -48,6 +48,7 @@ def summarize(args=None):
 
     # Silence expected matplotlib warnings.
     warnings.simplefilter('ignore', category=FutureWarning)
+    warnings.simplefilter('ignore', category=UserWarning)
 
     # Loop over target classes.
     class_names = config['classes'].keys()
@@ -97,8 +98,9 @@ def summarize(args=None):
         for plot_var_name, node in node['plots'].iteritems():
 
             # Initialize a new page of plots.
-            figure = plt.figure(figsize=(11, 8.5), facecolor='white')
-            subplot_index = 0
+            figure, axes = plt.subplots(
+                args.rows, args.cols, figsize=(11, 8.5), facecolor='white',
+                sharex=True, sharey=True)
 
             # Plot the truth distribution for this variable.
             x = truth[plot_var_name].data
@@ -106,21 +108,37 @@ def summarize(args=None):
                 print('Plotting {0} {1}'.format(class_name, plot_var_name))
 
             # Plot the performance of each fitter.
-            for fitter_name in fitter_names:
-                subplot_index += 1
-                ok = ok_dict[fitter_name]
-                dv = dv_dict[fitter_name]
-                if dv is not None:
-                    plt.subplot(args.rows, args.cols, subplot_index)
-                    desibest.utility.plot_slices(
-                        x=x[ok], y=dv[ok], x_lo=node['min'],
-                        x_hi=node['max'], num_slices=node['n'],
-                        y_cut=max_dv)
-                    plt.xlabel(node['label'])
-                    plt.ylabel('$\Delta v$ [km/s]')
+            for i in range(args.rows * args.cols):
+                row = i // args.cols
+                col = i % args.cols
+                axis = axes[row][col]
 
-            plt.tight_layout()
-            plt.show()
+                if i < len(fitter_names):
+                    fitter_name = fitter_names[i]
+                    ok = ok_dict[fitter_name]
+                    dv = dv_dict[fitter_name]
+                    if dv is not None:
+                        desibest.utility.plot_slices(
+                            x=x[ok], y=dv[ok], x_lo=node['min'],
+                            x_hi=node['max'], num_slices=node['n'],
+                            y_cut=max_dv, axis=axis)
+
+                if col > 0:
+                    plt.setp([axis.get_yticklabels()], visible=False)
+                else:
+                    axis.set_ylabel('$\Delta v$ [km/s]')
+
+                if row < args.rows - 1:
+                    plt.setp([axis.get_xticklabels()], visible=False)
+                else:
+                    # Hide the last x-axis label except in the bottom right.
+                    if col < args.cols - 1:
+                        plt.setp([axis.get_xticklabels()[-1]], visible=False)
+                    axis.set_xlabel('{0} {1}'.format(class_name, node['label']))
+
+        figure.subplots_adjust(
+            left=0.08, bottom=0.07, right=0.96, top=0.98, hspace=0., wspace=0.)
+        plt.show()
 
 
 if __name__ == '__main__':

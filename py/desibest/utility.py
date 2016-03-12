@@ -5,7 +5,8 @@ from __future__ import print_function, division
 import numpy as np
 
 
-def plot_slices(x, y, x_lo, x_hi, y_cut, num_slices=5, min_count=100):
+def plot_slices(x, y, x_lo, x_hi, y_cut, num_slices=5, min_count=100,
+                axis=None):
     """Scatter plot with 68, 95 percentiles superimposed in slices.
 
     Requires that the matplotlib package is installed.
@@ -33,12 +34,17 @@ def plot_slices(x, y, x_lo, x_hi, y_cut, num_slices=5, min_count=100):
     min_count : int
         Do not use slices with fewer points for superimposed percentile
         statistics.
+    axis : matplotlib axis object or None
+        Uses the current axis if this is None.
     """
     import matplotlib.pyplot as plt
 
+    if axis is None:
+        axis = plt.gca()
+
     # Assume that y is symmetric about zero.
-    plt.xlim(x_lo, x_hi)
-    plt.ylim(-1.25 * y_cut, +1.25 * y_cut)
+    axis.set_xlim(x_lo, x_hi)
+    axis.set_ylim(-1.25 * y_cut, +1.25 * y_cut)
     x_bins = np.linspace(x_lo, x_hi, num_slices + 1)
     x_i = np.digitize(x, x_bins) - 1
     limits = []
@@ -54,7 +60,7 @@ def plot_slices(x, y, x_lo, x_hi, y_cut, num_slices=5, min_count=100):
     counts = np.array(counts)
 
     # Plot scatter of all fits.
-    plt.scatter(x, y, s=15, marker='.', lw=0, color='blue', alpha=0.5)
+    axis.scatter(x, y, s=15, marker='.', lw=0, color='blue', alpha=0.5)
 
     # Plot quantiles in slices with enough fits.
     stepify = lambda y: np.vstack([y, y]).transpose().flatten()
@@ -67,13 +73,13 @@ def plot_slices(x, y, x_lo, x_hi, y_cut, num_slices=5, min_count=100):
     for i in xrange(num_slices):
         s = slice(2 * i, 2 * i + 2)
         if counts[i] >= min_count:
-            plt.fill_between(
+            axis.fill_between(
                 xstack[s], y_m2[s], y_p2[s], alpha=0.15, color='red')
-            plt.fill_between(
+            axis.fill_between(
                 xstack[s], y_m1[s], y_p1[s], alpha=0.25, color='red')
-            plt.plot(xstack[s], y_med[s], 'r-', lw=2.)
+            axis.plot(xstack[s], y_med[s], 'r-', lw=2.)
 
     # Plot cut lines.
-    plt.axhline(+y_cut, ls='-', color='k')
-    plt.axhline(-y_cut, ls='-', color='k')
-    plt.grid()
+    axis.axhline(+y_cut, ls='-', color='k')
+    axis.axhline(-y_cut, ls='-', color='k')
+    axis.grid()
