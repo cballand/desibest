@@ -127,6 +127,14 @@ def summarize(args=None):
                             x=x, y=dv, ok=ok, bad=bad, x_lo=node['min'],
                             x_hi=node['max'], num_slices=node['n'],
                             y_cut=max_dv, axis=axis)
+                    # Add a label even if the fitter has no results.
+                    xy = (0.5, 1.0)
+                    coords = 'axes fraction'
+                    axis.annotate(
+                        fitter_name, xy=xy, xytext=xy, xycoords=coords,
+                        textcoords=coords, horizontalalignment='center',
+                        verticalalignment='top', size='large', weight='bold')
+
                 else:
                     rhs = axis.twinx()
 
