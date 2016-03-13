@@ -1,10 +1,34 @@
 title: 'Redshift Data Challenge 1 Training Results'
 
+# Specify the grid for each 8.5" x 11" page of plots.  The grid must
+# be large enough to show results from all fitters on one page.
 rows: 2
 cols: 3
 
+# Base path that is prepended to all non-absolute paths below.
+# This path assumes you are running at NERSC.
 base: /project/projectdirs/desi/datachallenge/zdc1
 
+# Define the target classes to summarize.  For each class, specify:
+#
+#   truth: FITS file containing sample truth, including TRUEZ.
+#   max_dv: maximum allowed 68% sample error on dv in km/s.
+#   catastrophic: threshold in km/s where a fit with ZWARN=0 is considered bad.
+#   max_frac: maximum allowed fraction of bad fits.
+#   plots: dictonary of plots to generate for this target class.
+#
+# Each plot displays dv (left hand) and failed fit fractions (right hand)
+# versus the truth parameter named in the plot key, which must match one of the
+# truth colunns loaded above. Plots are further specified by:
+#
+#   n: Number of slices to use for calculating percentile statistics.
+#   min: Minimum value of the truth parameter to display.
+#   max: Maximum value of the truth parameter to display.
+#   label: Descriptive label of the truth parameter to use in the x-axis label.
+#   overlap: Number of x-axis labels to hide to avoid overlapping the next plot.
+#
+# The vertical scales used for each plot are controlled by max_dv (left-hand)
+# and max_frac (right-hand).
 classes:
     ELG:
         truth: samples/training/ELG/brick-b-elg-5000.fits
@@ -13,7 +37,7 @@ classes:
         max_frac: 0.05
         plots:
             TRUEZ: { n: 15, min: 0.6, max: 1.6, label: 'redshift', overlap: 1 }
-            RMAG: { n: 12, min: 21.0, max: 23.4, label: 'r-band magnitude', overlap: 0}
+            RMAG: { n: 12, min: 21.0, max: 23.4, label: 'r-band magnitude', overlap: 0 }
             OIIFLUX: { n: 15, min: 0.0, max: 4.0e-16, label: '[OII] flux', overlap: 1 }
     LRG:
         truth: samples/training/LRG/brick-b-lrg-5000.fits
@@ -40,6 +64,9 @@ classes:
             TRUEZ: { n: 16, min: -0.002, max: 0.002, label: 'redshift', overlap: 1 }
             RMAG: { n: 15, min: 18.0, max: 23.0, label: 'r-band magnitude', overlap: 1 }
 
+# Specify the ZBEST files to use for each combination of fitter and target
+# class.  A fitter does not need to provide a ZBEST file for all target classes
+# defined above.
 zbest:
     redrock:
         ELG: results/redrock/zbest-training-elg-5000-rr.fits
