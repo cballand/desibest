@@ -57,7 +57,14 @@ def summarize(args=None):
     nrows = config['rows']
     ncols = config['cols']
     base = config['base']
-    find_file = lambda name: os.path.join(base, name)
+
+    # Define a helper function to find files used below.
+    def find_file(name):
+        full_name = os.path.join(base, name)
+        if not os.path.isfile(full_name):
+            print('No such file: {0}'.format(full_name))
+            sys.exit(-1)
+        return full_name
 
     zbest_dict = config['zbest']
     fitter_names = zbest_dict.keys()
