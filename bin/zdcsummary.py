@@ -205,7 +205,6 @@ def summarize(args=None):
         # Load the truth information.
         truth_name = node['truth']
         truth = astropy.table.Table.read(find_file(truth_name), hdu='_TRUTH')
-        z_true = truth['TRUEZ'].data
         if args.verbose:
             print(
                 'Loaded {0} columns of {1} truth from {2}.'
@@ -219,9 +218,12 @@ def summarize(args=None):
             if class_name in zbest_dict[fitter_name]:
                 zbest = astropy.table.Table.read(
                     find_file(zbest_dict[fitter_name][class_name]), hdu='ZBEST')
+                # Match entries by TARGETID.
+                matched = astropy.table.join(truth, zbest, keys='TARGETID')
+                z_true = matched['TRUEZ'].data
                 # Calculate velocity residuals.
-                z_est = zbest['Z'].data
-                ok = (zbest['ZWARN'].data == 0)
+                z_est = matched['Z'].data
+                ok = (matched['ZWARN'].data == 0)
                 ok_dict[fitter_name] = ok
                 dv = CLIGHT_KM_S * (z_est - z_true) / (1 + z_true)
                 dv_dict[fitter_name] = dv

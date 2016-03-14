@@ -77,3 +77,8 @@ zbest:
         LRG: results/bayez/bayez_lrg_training_5k.fits
         QSO: results/bayez/bayez_qso_training_5k.fits
         STAR: results/bayez/bayez_star_training_5k.fits
+    redmonster:
+        ELG: govinda/redmonster/zbest-elg-5000.fits
+        LRG: govinda/redmonster/zbest-lrg-5000.fits
+        QSO: govinda/redmonster/zbest-qso-5000.fits
+        STAR: govinda/redmonster/zbest-star-5000.fits
