@@ -10,8 +10,7 @@ import yaml
 
 import numpy as np
 
-from matplotlib.backends.backend_pdf import PdfPages
-import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 from astropy.utils.compat import argparse
 import astropy.table
@@ -47,9 +46,14 @@ def summarize(args=None):
             return -1
         if ext == '':
             args.output += '.pdf'
+        from matplotlib.backends.backend_pdf import PdfPages
         pdf_output = PdfPages(args.output)
+        mpl.use('pdf')
     else:
         pdf_output = None
+
+    # Defer this import until after we have selected the backend to use.
+    import matplotlib.pyplot as plt
 
     title = config['title']
     if args.verbose:
