@@ -110,13 +110,13 @@ def plot_slices(x, y, ok, bad, x_lo, x_hi, y_cut, num_slices=5, min_count=100,
     if len(weights) > 0:
         rhs.hist(
             x[bad], range=(x_lo, x_hi), bins=num_slices, histtype='step',
-            weights=weights, color='k')
+            weights=weights, color='k', cumulative=True)
 
     weights = np.ones_like(x[~ok]) / len(x)
     if len(weights) > 0:
         rhs.hist(
             x[~ok], range=(x_lo, x_hi), bins=num_slices, histtype='step',
-            weights=weights, color='k', ls='dashed')
+            weights=weights, color='k', ls='dashed', cumulative=True)
 
     axis.set_ylim(-1.25 * y_cut, +1.25 * y_cut)
     axis.set_xlim(x_lo, x_hi)
@@ -254,6 +254,7 @@ def summarize(args=None):
                 print('Plotting {0} {1}'.format(class_name, plot_var_name))
             n, x_min, x_max = node['n'], node['min'], node['max']
             overlap = node['overlap']
+            rhs = None
 
             # Plot the performance of each fitter.
             for i in range(nrows * ncols):
@@ -267,7 +268,7 @@ def summarize(args=None):
                     dv = dv_dict[fitter_name]
                     if dv is not None:
                         bad = dv[ok] > catastrophic
-                        lhs, rhs = desibest.plot_slices(
+                        lhs, rhs = plot_slices(
                             x=x, y=dv, ok=ok, bad=bad, x_lo=x_min, x_hi=x_max,
                             num_slices=n, y_cut=max_dv, axis=axis)
                     # Add a label even if the fitter has no results.
@@ -277,24 +278,24 @@ def summarize(args=None):
                         fitter_name, xy=xy, xytext=xy, xycoords=coords,
                         textcoords=coords, horizontalalignment='center',
                         verticalalignment='top', size='large', weight='bold')
-
                 else:
+                    # Create an empty right-hand axis for this plot.
                     rhs = axis.twinx()
 
-                rhs.set_ylim(0., max_frac)
+                if rhs is not None:
+                    rhs.set_ylim(0., max_frac)
+                    if col < ncols - 1:
+                        plt.setp([rhs.get_yticklabels()], visible=False)
+                    else:
+                        # Hide the last y-axis label except on the first row.
+                        if row > 0:
+                            plt.setp([rhs.get_yticklabels()[-2:]], visible=False)
+                        rhs.set_ylabel('zwarn, catastrophic cummulative fraction')
+
                 if col > 0:
                     plt.setp([axis.get_yticklabels()], visible=False)
                 else:
                     axis.set_ylabel('Redshift fit residual $\Delta v$ [km/s]')
-
-                if col < ncols - 1:
-                    plt.setp([rhs.get_yticklabels()], visible=False)
-                else:
-                    # Hide the last y-axis label except on the first row.
-                    if row > 0:
-                        # Why is -2 required here??
-                        plt.setp([rhs.get_yticklabels()[-2:]], visible=False)
-                    rhs.set_ylabel('zwarn, catastrophic fit fraction')
 
                 if row < nrows - 1:
                     plt.setp([axis.get_xticklabels()], visible=False)
