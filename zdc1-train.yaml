@@ -34,7 +34,7 @@ classes:
         truth: samples/training/ELG/brick-b-elg-5000.fits
         max_dv: 150 # km/s
         catastrophic: 1000 # km/s
-        max_frac: 0.05
+        max_frac: 0.1
         plots:
             TRUEZ: { n: 15, min: 0.6, max: 1.6, label: 'redshift', overlap: 1 }
             RMAG: { n: 12, min: 21.0, max: 23.4, label: 'r-band magnitude', overlap: 0 }
@@ -51,7 +51,7 @@ classes:
         truth: samples/training/QSO/brick-b-qso-5000.fits
         max_dv: 750 # km/s
         catastrophic: 1000 # km/s
-        max_frac: 0.05
+        max_frac: 0.1
         plots:
             TRUEZ: { n: 14, min: 0.5, max: 4.0, label: 'redshift', overlap: 1 }
             GMAG: { n: 16, min: 21.0, max: 23.0, label: 'g-band magnitude', overlap: 1 }
