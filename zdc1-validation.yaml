@@ -1,4 +1,4 @@
-title: 'Redshift Data Challenge 1 Training Results'
+title: 'Redshift Data Challenge 1 Validation Results'
 
 # Specify the grid for each 8.5" x 11" page of plots.  The grid must
 # be large enough to show results from all fitters on one page.
@@ -31,16 +31,16 @@ base: /project/projectdirs/desi/datachallenge/zdc1
 # and max_frac (right-hand).
 classes:
     ELG:
-        truth: samples/training/ELG/brick-b-elg-5000.fits
+        truth: samples/validation_truth/truth-brick-b-valid-elg-5000.fits
         max_dv: 150 # km/s
         catastrophic: 1000 # km/s
-        max_frac: 0.05
+        max_frac: 0.1
         plots:
             TRUEZ: { n: 15, min: 0.6, max: 1.6, label: 'redshift', overlap: 1 }
             RMAG: { n: 12, min: 21.0, max: 23.4, label: 'r-band magnitude', overlap: 0 }
             OIIFLUX: { n: 10, min: 0.0, max: 4.0e-16, label: '[OII] flux', overlap: 1 }
     LRG:
-        truth: samples/training/LRG/brick-b-lrg-5000.fits
+        truth: samples/validation_truth/truth-brick-b-valid-lrg-5000.fits
         max_dv: 150 # km/s
         catastrophic: 1000 # km/s
         max_frac: 0.05
@@ -48,15 +48,15 @@ classes:
             TRUEZ: { n: 12, min: 0.5, max: 1.0, label: 'redshift', overlap: 2 }
             ZMAG: { n: 15, min: 19.0, max: 20.5, label: 'z-band magnitude', overlap: 2 }
     QSO:
-        truth: samples/training/QSO/brick-b-qso-5000.fits
+        truth: samples/validation_truth/truth-brick-b-valid-qso-5000.fits
         max_dv: 750 # km/s
         catastrophic: 1000 # km/s
-        max_frac: 0.05
+        max_frac: 0.1
         plots:
             TRUEZ: { n: 14, min: 0.5, max: 4.0, label: 'redshift', overlap: 1 }
             GMAG: { n: 16, min: 21.0, max: 23.0, label: 'g-band magnitude', overlap: 1 }
     STAR:
-        truth: samples/training/STAR/brick-b-star-5000.fits
+        truth: samples/validation_truth/truth-brick-b-valid-star-5000.fits
         max_dv: 75 # km/s
         catastrophic: 1000 # km/s
         max_frac: 0.05
@@ -69,11 +69,23 @@ classes:
 # defined above.
 zbest:
     redrock:
-        ELG: results/redrock/zbest-training-elg-5000-rr.fits
-        LRG: results/redrock/zbest-training-lrg-5000-rr.fits
-        QSO: results/redrock/zbest-training-qso-5000-rr.fits
+        ELG: results/redrock/zbest-validation-elg-5000-rr.fits
+        LRG: results/redrock/zbest-validation-lrg-5000-rr.fits
+        QSO: results/redrock/zbest-validation-qso-5000-rr.fits
     bayez:
-        ELG: results/bayez/bayez_elg_training_5k.fits
-        LRG: results/bayez/bayez_lrg_training_5k.fits
-        QSO: results/bayez/bayez_qso_training_5k.fits
-        STAR: results/bayez/bayez_star_training_5k.fits
+        ELG: results/bayez/bayez_elg_valid_5k.fits
+        LRG: results/bayez/bayez_lrg_valid_5k.fits
+        QSO: results/bayez/bayez_qso_valid_5k.fits
+        STAR: results/bayez/bayez_star_valid_5k.fits
+    zpy-pure:
+        ELG: results/zpy/purity_optimized/zbest-valid-elg-5000-zpy.fits
+        LRG: results/zpy/purity_optimized/zbest-valid-lrg-5000-zpy.fits
+        QSO: results/zpy/purity_optimized/zbest-valid-qso-5000-zpy.fits
+        STAR: results/zpy/purity_optimized/zbest-valid-star-5000-zpy.fits
+    zpy-complete:
+        ELG: results/zpy/completion_optimized/zbest-valid-elg-5000-zpy.fits
+        LRG: results/zpy/completion_optimized/zbest-valid-lrg-5000-zpy.fits
+        QSO: results/zpy/completion_optimized/zbest-valid-qso-5000-zpy.fits
+        STAR: results/zpy/completion_optimized/zbest-valid-star-5000-zpy.fits
+    zztop:
+        ELG: results/zztop/zbest-valid-elg-5000-zztop.fits

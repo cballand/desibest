@@ -267,7 +267,7 @@ def summarize(args=None):
                     dv = dv_dict[fitter_name]
                     if dv is not None:
                         bad = dv[ok] > catastrophic
-                        lhs, rhs = desibest.utility.plot_slices(
+                        lhs, rhs = desibest.plot_slices(
                             x=x, y=dv, ok=ok, bad=bad, x_lo=x_min, x_hi=x_max,
                             num_slices=n, y_cut=max_dv, axis=axis)
                     # Add a label even if the fitter has no results.
